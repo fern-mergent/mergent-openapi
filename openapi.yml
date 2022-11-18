@@ -1,7 +1,7 @@
 openapi: 3.0.1
 info:
   title: api
-  version: 0.0.2
+  version: 0.0.3
 paths:
   /schedules/:
     get:
@@ -334,7 +334,6 @@ components:
             added to `scheduled_for`.
       required:
         - request
-        - delay
     TaskTask:
       type: object
       properties:
