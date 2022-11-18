@@ -1,8 +1,59 @@
 openapi: 3.0.1
 info:
   title: api
-  version: 0.0.1
+  version: 0.0.2
 paths:
+  /schedules/:
+    get:
+      operationId: ScheduleService.getAll
+      tags:
+        - ScheduleService
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleSchedule'
+      security: &ref_0
+        - BearerAuth: []
+  /schedules/{schedule_id}:
+    delete:
+      operationId: ScheduleService.delete
+      tags:
+        - ScheduleService
+      parameters:
+        - name: schedule_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/ScheduleScheduleId'
+      responses:
+        '204':
+          description: ''
+      security: *ref_0
+  /schedules/{schedule_id}/schedules:
+    get:
+      operationId: ScheduleService.getSchedules
+      tags:
+        - ScheduleService
+      parameters:
+        - name: schedule_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/ScheduleScheduleId'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskTask'
+      security: *ref_0
   /tasks/:
     post:
       operationId: TaskService.create
@@ -16,8 +67,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TaskTask'
-      security: &ref_0
-        - BearerAuth: []
+      security: *ref_0
       requestBody:
         required: true
         content:
@@ -61,11 +111,11 @@ paths:
       security: *ref_0
   /tasks/batch-create:
     post:
-      description: >
+      description: |
         A maximum of 100 Tasks are accepted per request.
 
-        This operation is atomic: it will succeed for all Tasks or fail for all
-        Tasks; there is no partial success.
+        This operation is atomic: it will succeed for all Tasks or fail for
+        all Tasks; there is no partial success.
 
         This endpoint is in beta and may change at any time without notice.
       operationId: TaskService.batchCreate
@@ -110,37 +160,109 @@ paths:
                 $ref: '#/components/schemas/TaskTaskId'
 components:
   schemas:
-    TaskCreateTaskRequest:
+    ScheduleCreateScheduleRequest:
       type: object
       properties:
         name:
           type: string
+          description: |
+            An optional name of the Schedule. This string must not contain more
+            than 100 characters.
+        description:
+          type: string
+          description: >
+            An optional description of the Schedule. This string must not
+            contain
+
+            more than 500 characters.
+        cron:
+          type: string
+          description: >
+            A [cron expression](https://crontab.guru/examples.html) describing
+            the
+
+            Schedule on which Schedules will run (UTC).
+
+
+            Note: execution n + 1 of a Schedule will not begin until execution n
+            has
+
+            completed successfully.
+
+
+            You must pass either `cron` or `rrule`` when creating a new
+            Schedule.
+        rrule:
+          type: string
+          description: >
+            An [iCal RRule
+            expression](https://icalendar.org/iCalendar-RFC-5545/3-8-5-3-recurrence-rule.html)
+
+            describing the Schedule on which Schedules will run (UTC). The time
+            of
+
+            Schedule creation will be used as the start of the recurrence
+            interval
+
+            (i.e. DTSTART).
+
+
+            Note: execution n + 1 of a Schedule will not begin until execution n
+            has
+
+            completed successfully.
+
+
+            You must pass either `cron` or `rrule`` when creating a new
+            Schedule.
+        dstart:
+          type: string
+          description: >
+            The [ISO 8601
+            timestamp](https://en.wikipedia.org/wiki/ISO_8601#Combined_date_and_time_representations)
+
+            denoting the start of an RRULE schedule.
+
+
+            Example: "2021-10-01T15:53:05Z".
+
+
+            When not set, it will be set to the current time, and the first
+            Schedule will be scheduled immediately.
+
+            Ignored for `cron`-type Schedules.
+        paused:
+          type: boolean
           description: >-
-            An optional name of the Task. This string must not contain more than
-            100 characters.
+            If `true`, the Schedule will be paused immediately. If `false`, a
+            paused Schedule will be resumed.
         request:
-          $ref: '#/components/schemas/TaskHttpRequest'
-        scheduled_for:
+          $ref: '#/components/schemas/SharedHttpRequest'
+      required:
+        - paused
+        - request
+    ScheduleSchedule:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/ScheduleScheduleId'
+          description: A unique ID assigned upon creation.
+        created_at:
           type: string
           format: date-time
           description: >
-            The ISO 8601 timestamp for when the Task is scheduled to be
-            executed. Example: "2021-10-01T15:53:05Z".
+            The [ISO 8601
+            timestamp](https://en.wikipedia.org/wiki/ISO_8601#Combined_date_and_time_representations)
 
-            When not present, the Task will be scheduled for immediate
-            execution.
-        delay:
-          type: string
-          description: >
-            The ISO 8601 duration for the time to wait before the Task is
-            executed. Example: "PT1M" for a delay of 1 minute.
-
-            When both `delay` and `scheduled_for` are present, `delay` will be
-            added to `scheduled_for`.
+            representing when the schedule was created.
       required:
-        - request
-        - delay
-    TaskHttpRequest:
+        - id
+        - created_at
+      allOf:
+        - $ref: '#/components/schemas/ScheduleCreateScheduleRequest'
+    ScheduleScheduleId:
+      type: string
+    SharedHttpRequest:
       type: object
       properties:
         url:
@@ -148,54 +270,94 @@ components:
           description: >
             The URL that the POST request will be sent to.
 
+
             For localhost development, use something like ngrok to get a
-            publicly accessible URL for your local service. See
-            https://docs.mergent.co for more info.
+            publicly
+
+            accessible URL for your local service. See https://docs.mergent.co
+            for
+
+            more info.
         headers:
           type: object
           additionalProperties:
             type: string
-          description: >-
-            The headers that will accompany any Task's HTTP request. For
-            example, you can use this to set Content-Type to "application/json"
-            or "application/octet-stream".
+          description: |
+            The headers that will accompany any Task's HTTP request.
+
+            For example, you can use this to set Content-Type to
+            "application/json" or "application/octet-stream".
         body:
           type: string
           description: The HTTP request body
       required:
         - url
+    TaskCreateTaskRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: |
+            An optional name of the Task. This string must not contain more than
+            100 characters.
+        request:
+          $ref: '#/components/schemas/SharedHttpRequest'
+        scheduled_for:
+          type: string
+          format: date-time
+          description: >
+            The [ISO 8601
+            timestamp](https://en.wikipedia.org/wiki/ISO_8601#Combined_date_and_time_representations)
+
+            for when the Task is scheduled to be executed.
+
+
+            Example: "2021-10-01T15:53:05Z".
+
+
+            When not present, the Task will be scheduled for immediate
+            execution.
+        delay:
+          type: string
+          description: >
+            The [ISO 8601
+            duration](https://en.wikipedia.org/wiki/ISO_8601#Durations)
+
+            for the time to wait before the Task is executed.
+
+
+            Example: "PT1M" for a delay of 1 minute.
+
+
+            When both `delay` and `scheduled_for` are present, `delay` will be
+
+            added to `scheduled_for`.
+      required:
+        - request
+        - delay
     TaskTask:
       type: object
       properties:
         id:
           $ref: '#/components/schemas/TaskTaskId'
           description: A unique ID assigned upon creation.
-        name:
-          type: string
-          description: The name of the task.
         status:
           $ref: '#/components/schemas/TaskTaskStatus'
           description: The status of this Task.
-        request:
-          $ref: '#/components/schemas/TaskHttpRequest'
-        scheduled_for:
-          type: string
-          format: date-time
-          description: >
-            The ISO 8601 timestamp for when the Task is scheduled to be
-            executed. Example: "2021-10-01T15:53:05Z".
-
-            When not present, the Task has been scheduled for immediate
-            execution.
         created_at:
           type: string
           format: date-time
-          description: The ISO 8601 timestamp representing when the object was created.
+          description: >
+            The [ISO 8601
+            timestamp](https://en.wikipedia.org/wiki/ISO_8601#Combined_date_and_time_representations)
+
+            representing when the task was created.
       required:
         - id
         - status
-        - request
         - created_at
+      allOf:
+        - $ref: '#/components/schemas/TaskCreateTaskRequest'
     TaskTaskId:
       type: string
     TaskTaskStatus:
