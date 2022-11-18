@@ -1,0 +1,213 @@
+openapi: 3.0.1
+info:
+  title: api
+  version: 0.0.1
+paths:
+  /tasks/:
+    post:
+      operationId: TaskService.create
+      tags:
+        - TaskService
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskTask'
+      security: &ref_0
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreateTaskRequest'
+  /tasks/{task_id}:
+    delete:
+      operationId: TaskService.delete
+      tags:
+        - TaskService
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/TaskTaskId'
+      responses:
+        '204':
+          description: ''
+      security: *ref_0
+  /tasks/{task_id}/run:
+    post:
+      description: Reschedules a queued Task to be run immediately.
+      operationId: TaskService.run
+      tags:
+        - TaskService
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/TaskTaskId'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskTask'
+      security: *ref_0
+  /tasks/batch-create:
+    post:
+      description: >
+        A maximum of 100 Tasks are accepted per request.
+
+        This operation is atomic: it will succeed for all Tasks or fail for all
+        Tasks; there is no partial success.
+
+        This endpoint is in beta and may change at any time without notice.
+      operationId: TaskService.batchCreate
+      tags:
+        - TaskService
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskTask'
+      security: *ref_0
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/TaskCreateTaskRequest'
+  /tasks/batch-delete:
+    post:
+      operationId: TaskService.batchDelete
+      tags:
+        - TaskService
+      parameters: []
+      responses:
+        '204':
+          description: ''
+      security: *ref_0
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/TaskTaskId'
+components:
+  schemas:
+    TaskCreateTaskRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: >-
+            An optional name of the Task. This string must not contain more than
+            100 characters.
+        request:
+          $ref: '#/components/schemas/TaskHttpRequest'
+        scheduled_for:
+          type: string
+          format: date-time
+          description: >
+            The ISO 8601 timestamp for when the Task is scheduled to be
+            executed. Example: "2021-10-01T15:53:05Z".
+
+            When not present, the Task will be scheduled for immediate
+            execution.
+        delay:
+          type: string
+          description: >
+            The ISO 8601 duration for the time to wait before the Task is
+            executed. Example: "PT1M" for a delay of 1 minute.
+
+            When both `delay` and `scheduled_for` are present, `delay` will be
+            added to `scheduled_for`.
+      required:
+        - request
+        - delay
+    TaskHttpRequest:
+      type: object
+      properties:
+        url:
+          type: string
+          description: >
+            The URL that the POST request will be sent to.
+
+            For localhost development, use something like ngrok to get a
+            publicly accessible URL for your local service. See
+            https://docs.mergent.co for more info.
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: >-
+            The headers that will accompany any Task's HTTP request. For
+            example, you can use this to set Content-Type to "application/json"
+            or "application/octet-stream".
+        body:
+          type: string
+          description: The HTTP request body
+      required:
+        - url
+    TaskTask:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/TaskTaskId'
+          description: A unique ID assigned upon creation.
+        name:
+          type: string
+          description: The name of the task.
+        status:
+          $ref: '#/components/schemas/TaskTaskStatus'
+          description: The status of this Task.
+        request:
+          $ref: '#/components/schemas/TaskHttpRequest'
+        scheduled_for:
+          type: string
+          format: date-time
+          description: >
+            The ISO 8601 timestamp for when the Task is scheduled to be
+            executed. Example: "2021-10-01T15:53:05Z".
+
+            When not present, the Task has been scheduled for immediate
+            execution.
+        created_at:
+          type: string
+          format: date-time
+          description: The ISO 8601 timestamp representing when the object was created.
+      required:
+        - id
+        - status
+        - request
+        - created_at
+    TaskTaskId:
+      type: string
+    TaskTaskStatus:
+      type: string
+      enum:
+        - queued
+        - working
+        - success
+        - failure
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+servers:
+  - url: https://api.mergent.co/v2
